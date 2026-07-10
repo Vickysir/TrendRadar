@@ -44,7 +44,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
   actions: write
 
 jobs:
@@ -60,6 +60,7 @@ jobs:
           clean: true
 
       - name: Check Expiration
+        if: github.ref != 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -213,3 +214,28 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy cloudflare_dist --project-name=${{ secrets.CLOUDFLARE_PROJECT_NAME }}
+
+      # --------------------------------------------------------------------------------
+      # 📄 GITHUB PAGES / 仅推送 index.html 到 gh-pages 分支
+      # --------------------------------------------------------------------------------
+      - name: Prepare GitHub Pages files
+        if: success() && github.ref == 'refs/heads/main'
+        run: |
+          if [ ! -f index.html ]; then
+            echo "❌ 未找到 index.html，跳过 GitHub Pages 发布"
+            exit 1
+          fi
+          mkdir -p _pages
+          cp index.html _pages/index.html
+          touch _pages/.nojekyll
+
+      - name: Publish to gh-pages branch
+        if: success() && github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_pages
+          publish_branch: gh-pages
+          user_name: github-actions[bot]
+          user_email: github-actions[bot]@users.noreply.github.com
+          commit_message: chore: update GitHub Pages report
